@@ -2,6 +2,7 @@ package co.tiagoaguiar.netflixremake
 
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
+import android.view.MenuItem
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -39,15 +40,19 @@ class MovieActivity : AppCompatActivity() {
 
         //busquei o desenhavel (layer-list)
         val layerDrawable: LayerDrawable = ContextCompat.getDrawable(this, R.drawable.shadows) as LayerDrawable
-
         //busquei o filme que eu quero
         val movieCover = ContextCompat.getDrawable(this, R.drawable.movie_4)
-
         // atribui a esse layer-list o novo filme
         layerDrawable.setDrawableByLayerId(R.id.cover_drawable, movieCover)
-
         // set no imageview
         val coverImg: ImageView = findViewById(R.id.movie_img)
         coverImg.setImageDrawable(layerDrawable)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) {
+            finish()
+    }
+        return super.onOptionsItemSelected(item)
     }
 }
