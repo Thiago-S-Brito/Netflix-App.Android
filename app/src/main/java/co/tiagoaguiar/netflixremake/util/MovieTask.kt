@@ -2,8 +2,8 @@ package co.tiagoaguiar.netflixremake.util
 
 import android.os.Looper
 import android.util.Log
-import co.tiagoaguiar.netflixremake.model.Category
 import co.tiagoaguiar.netflixremake.model.Movie
+import co.tiagoaguiar.netflixremake.model.MovieDetail
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -13,13 +13,13 @@ import java.net.URL
 import java.util.concurrent.Executors
 import javax.net.ssl.HttpsURLConnection
 
-class CategoryTask(private val callback: Callback) {
+class MovieTask(private val callback: Callback) {
 
     private val handler = android.os.Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
     interface Callback {
         fun onPreExecute()
-        fun onResult(categories: List<Category>)
+        fun onResult(movieDetail: MovieDetail)
         fun onFailure(message: String)
     }
 
@@ -38,7 +38,17 @@ class CategoryTask(private val callback: Callback) {
                 urlConnection.connectTimeout = 2000
 
                 val statusCode: Int = urlConnection.responseCode
-                if (statusCode > 400) {
+
+                if (statusCode == 400) {
+                    stream = urlConnection.errorStream
+                    buffer = BufferedInputStream(stream)
+                    val jsonAsString = toString(buffer)
+
+                    val json = JSONObject(jsonAsString)
+                    val message = json.getString("message")
+                    throw  IOException(message)
+
+                } else if (statusCode > 400) {
                     throw IOException("Erro na comunicação com o servidor!")
                 }
 
@@ -47,10 +57,10 @@ class CategoryTask(private val callback: Callback) {
                 buffer = BufferedInputStream(stream)
                 val jsonAsString = toString(buffer)
 
-                val categories = toCategories(jsonAsString)
+                val movieDetail = toMovieDetail(jsonAsString)
 
                 handler.post {
-                    callback.onResult(categories)
+                    callback.onResult(movieDetail)
                 }
 
             } catch (e: IOException) {
@@ -68,29 +78,29 @@ class CategoryTask(private val callback: Callback) {
         }
     }
 
-    private fun toCategories(jsonAsString: String) : List<Category> {
-        val categories = mutableListOf<Category>()
+    private fun toMovieDetail(jsonAsString: String) : MovieDetail {
+        val json = JSONObject(jsonAsString)
 
-        val jsonRoot = JSONObject(jsonAsString)
-        val jsonCategories = jsonRoot.getJSONArray("category")
-        for (i in 0 until jsonCategories.length()) {
-            val jsonCategory = jsonCategories.getJSONObject(i)
+        val id = json.getInt("id")
+        val title = json.getString("title")
+        val desc = json.getString("desc")
+        val cast = json.getString("cast")
+        val coverUrl = json.getString("cover_url")
+        val jsonMovies = json.getJSONArray("movie")
 
-            val title = jsonCategory.getString("title")
-            val jsonMovies = jsonCategory.getJSONArray("movie")
+        val similars = mutableListOf<Movie>()
+        for (i in 0 until jsonMovies.length()) {
+            val jsonMovie = jsonMovies.getJSONObject(i)
 
-            val movies = mutableListOf<Movie>()
-            for (j in 0 until jsonMovies.length()) {
-                val jsonMovie = jsonMovies.getJSONObject(j)
-                val id = jsonMovie.getInt("id")
-                val coverUrl = jsonMovie.getString("cover_url")
+            val similarId = jsonMovie.getInt("id")
+            val similarCoverUrl = jsonMovie.getString("cover_url")
 
-                movies.add(Movie(id, coverUrl))
-            }
-
-            categories.add(Category(title, movies))
+            val m = Movie(similarId, similarCoverUrl)
+            similars.add(m)
         }
-        return categories
+
+        val movie = Movie(id, coverUrl, title, desc, cast)
+        return MovieDetail(movie, similars)
     }
 
     private fun toString(stream: InputStream) : String {
